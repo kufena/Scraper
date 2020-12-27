@@ -2,7 +2,7 @@
   "profiles": {
     "Scraper": {
       "commandName": "Project",
-      "commandLineArgs": "https://www.thelogbook.net/"
+      "commandLineArgs": "<site> <directory>"
     }
   }
 }

@@ -43,7 +43,7 @@ namespace Scraper
                 if (referral.LocalPath.EndsWith(".pdf"))
                     type = Type.other;
 
-                var newlinks = await HandleDocument(referral, type);
+                var newlinks = await HandleDocument(referral, type, args[1]);
                 foreach(var ll in newlinks)
                 {
                     if (ll.Host == host)
@@ -59,22 +59,43 @@ namespace Scraper
         // Takes a document name and a type, does the http request to
         // retrieve that document, and then processes it.
         // Processing might mean 
-        private static async Task<List<Uri>> HandleDocument(Uri filename, Type ofdoc)
+        private static async Task<List<Uri>> HandleDocument(Uri filename, Type ofdoc, string directory)
         {
-            HttpClientHandler hch = new HttpClientHandler
-            {
-                AllowAutoRedirect = false
-            };
-
-            HttpClient htmlclient = new HttpClient(hch);
+            HttpClient htmlclient = new HttpClient();
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, filename);
             var links = new List<Uri>();
             var response = await htmlclient.SendAsync(request,HttpCompletionOption.ResponseContentRead);
             if (response.IsSuccessStatusCode)
             {
-                var bodystr = await response.Content.ReadAsStringAsync();
                 Uri location = response.Headers.Location;
                 if (location == null) location = filename;
+
+                var ct = response.Content.Headers.ContentType;
+                string writeto = directory + location.LocalPath;
+
+                if (!ct.MediaType.StartsWith("text")) {
+                    byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+
+                    if (File.Exists(writeto))
+                        Console.WriteLine($"Note {writeto} already exists.");
+                    FileInfo bfi = new FileInfo(writeto);
+                    bfi.Directory.Create();
+                    var bf = File.OpenWrite(writeto);
+                    BinaryWriter bw = new BinaryWriter(bf);
+                    bw.Write(bytes);
+                    bf.Close();
+                    return links;
+                }
+
+                var bodystr = await response.Content.ReadAsStringAsync();
+                if (File.Exists(writeto))
+                    Console.WriteLine($"Note {writeto} already exists.");
+                FileInfo fi = new FileInfo(writeto);
+                fi.Directory.Create();
+                var f = File.OpenWrite(writeto);
+                StreamWriter sw = new StreamWriter(f);
+                sw.Write(bodystr);
+                f.Close();
 
                 switch (ofdoc)
                 {
@@ -117,6 +138,16 @@ namespace Scraper
             if (node.NodeType == HtmlNodeType.Element && node.Name == "a")
             {
                 var refs = node.Attributes.AttributesWithName("href");
+                foreach (var r in refs)
+                {
+                    Uri newr = new Uri(rootlocation, r.Value);
+                    if (!links.Contains(newr))
+                        links.Add(newr);
+                }
+            }
+            if (node.NodeType == HtmlNodeType.Element && node.Name == "img")
+            {
+                var refs = node.Attributes.AttributesWithName("src");
                 foreach (var r in refs)
                 {
                     Uri newr = new Uri(rootlocation, r.Value);
