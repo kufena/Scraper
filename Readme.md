@@ -7,7 +7,7 @@ please get permission before you use it.**
 
 You give the scraper two arguments:
 
-   <site to scrape>  <directory to write site>
+    **site to scrape**  **directory to write site**
 
 The root site will need to have a file name, like index.html, otherwise
 it won't know where to write the initial file.
